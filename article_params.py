@@ -1,0 +1,174 @@
+import nltk
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords, wordnet
+from nltk.stem import WordNetLemmatizer
+import string
+from collections import defaultdict
+
+# Import default dictionary for dictionary lists, initialize list and dicts. 
+#from collections import defaultdict
+emotion_dict = defaultdict(list)
+emolexdatalist= []
+
+# Open and read the EmoLex into a list of lists. 
+with open("NRC-Emotion-Lexicon-Wordlevel-v0.92.txt", "r") as emolexdata:
+    next(emolexdata)
+    for row in emolexdata:
+        row = row.strip().split("\t")
+        emolexdatalist.append(row)
+    emolexdata.close()
+
+# For each list in the list of lists 
+for line in emolexdatalist:
+    # If the word is included in the emotion
+    if line[2] == "1":
+        # And if the emotion is not a sentiment
+        if (line[1] != 'negative') and (line[1] != 'positive'):
+            # Add the word to the list of lists
+            emotion_dict[line[1]].append(line[0])
+        else:
+            # Otherwise if it is 0, and if is a sentiment, skip. 
+            continue
+            
+def clean_article(articleName):
+    token_frequency_dic = {}
+    with open(articleName,'r') as f:
+        text = f.read()
+
+        # split into words
+        tokens = word_tokenize(text)
+
+        # convert to lower case
+        tokens = [w.lower() for w in tokens]
+
+        # remove punctuation from each word
+        table = str.maketrans('', '', string.punctuation)
+        stripped = [w.translate(table) for w in tokens]
+
+        # remove remaining tokens that are not alphabetic
+        words = [word for word in stripped if word.isalpha()]
+
+        # filter out stop words and sort
+        stop_words = set(stopwords.words('english'))
+        words = [w for w in words if not w in stop_words]
+        words.sort()
+        req = nltk.FreqDist(words)
+        for k,v in req.items():
+            token_frequency_dic[str(k)] = v
+               
+        return token_frequency_dic
+
+    f.close()
+    
+    #part 1 of checking the words in emption_dict
+def token_checker_1(emotion_dict, token_frequency):
+    token_frequency_present = {}
+    token_frequency_absent = {}
+    #creating a blank dictionary for each emotion based on emotion_dict
+    for emotion in emotion_dict:
+        token_frequency_present[emotion] = {}
+        
+    for word in token_frequency: #taking the word 
+        present = False  #internal check to see if the word is present in any of the emotion dicts
+        for emotion in emotion_dict: # going into sad in the emotion dict
+            if word in emotion_dict[emotion]: # going into the list of words in sad words
+                token_frequency_present[emotion][word]= token_frequency[word]
+                present = True #will change if 
+        if present == False:
+            token_frequency_absent[word]= token_frequency[word]
+    return [token_frequency_present,token_frequency_absent]
+
+
+
+#part 2 of checking the words in the emption_dict
+def token_checker_2(token_frequency_present,token_frequency_absent,emotion_dict):
+    lemmatizer = WordNetLemmatizer()
+    token_frequency_absent_l = {}
+    for word in token_frequency_absent: #taking the word sorrow
+        word_lemma = lemmatizer.lemmatize(word)
+        for word_p in token_frequency_present:
+            if word_lemma is word_p:
+                token_frequency_present[word_p] = token_frequency_present[word_p] + token_frequency_absent[word]
+            else:
+                token_frequency_absent_l[word_lemma] = token_frequency_absent[word]
+
+    [token_frequency_present_2,token_frequency_absent_2] = token_checker_1(emotion_dict,token_frequency_absent_l)
+
+    for emotion in token_frequency_present_2:
+        if emotion == {}:
+            continue
+        for word in token_frequency_present_2[emotion]:
+            token_frequency_present[emotion][word] = token_frequency_present_2[emotion][word]
+    return [token_frequency_present,token_frequency_absent_2]
+
+
+#part 3 for checking the words in the synonyms:
+def token_checker_3(token_frequency_present,token_frequency_absent_2,emotion_dict):    
+    for word in token_frequency_absent_2:
+        #create a list with all synonyms
+        syns = wordnet.synsets(word)
+        syns_words = []
+        for n in range(len(syns)):
+            syns_words.append(syns[n].lemmas()[0].name())
+        #print(syns_words)
+        # go in each word in syns_words to make comparison
+        present = False        
+        token_frequency_absent_3 = {}
+        for word_s in syns_words:
+            if present == True:
+                break
+                #check if it is token_frequency_present, 
+                #if yes update the frequency and exit all the for loops except the first one
+            if word_s in token_frequency_present:
+                token_frequency_present[word_s] = token_frequency_present[word_s] + token_frequency_absent_2[word]
+                present = True
+                #print(present)
+            else:
+                #if is is absent in token_frequency_present, 
+                #check emotion dictionary and if it is present exit all except first for
+                for emotion in emotion_dict: # going into sad in the emotion dict
+                    if word_s in emotion_dict[emotion]: # going into the list of words in sad words
+                        token_frequency_present[emotion][word]= token_frequency_absent_2[word]
+                        present = True
+                        #print("present for", word_s)
+        #if it is absent in emotion dictionary, add it to token_frequency_present_3
+        if present == False:
+            token_frequency_absent_3[word]= token_frequency_absent_2[word]
+    return [token_frequency_present, token_frequency_absent_3]
+
+def create_param(token_frequency_present,token_frequency):    
+    parameter1 = {}
+    for emotion in token_frequency_present:
+        parameter1[emotion] = 0
+    for emotion in token_frequency_present:
+        parameter1[emotion] = sum(token_frequency_present[emotion].values())
+
+    parameter2 = {}
+    total_words = sum(token_frequency.values())
+    for emotion in parameter1:
+        parameter2[emotion] = parameter1[emotion]/total_words    
+    return [parameter1, parameter2]
+    
+def token_checker(emotion_dict,token_frequency):
+    [token_frequency_present,token_frequency_absent_1] = token_checker_1(emotion_dict,token_frequency)
+    #print("part 1 token_frequency_present is", token_frequency_present, "\n")
+    #print("part 1 token_frequency_absent is", token_frequency_absent_1,"\n")
+    #print("part 1 params are", create_param(token_frequency_present,token_frequency))
+    [token_frequency_present, token_frequency_absent_2] = token_checker_2(token_frequency_present,token_frequency_absent_1,emotion_dict)
+    #print("part 2 token_frequency_present is", token_frequency_present,"\n")
+    #print("part 2 token_frequency_absent is", token_frequency_absent_2, "\n")
+    #print("part 2 params are", create_param(token_frequency_present,token_frequency))
+    [token_frequency_present, token_frequency_absent_3] = token_checker_3(token_frequency_present,token_frequency_absent_2,emotion_dict)
+    #print("part 3 token_frequency_present is", token_frequency_present, "\n")
+    #print("part 3 token_frequency_absent is", token_frequency_absent_3, "\n")
+    #print("part 3 params are", create_param(token_frequency_present,token_frequency))
+    return create_param(token_frequency_present,token_frequency)
+    #print(parameter1)
+    #print(parameter2)
+
+def article_parameters(articleName):
+    token_frequency = clean_article(articleName)
+    return token_checker(emotion_dict,token_frequency)
+
+article_parameter_1 = article_parameters("steve_smith_article.txt")
+print(article_parameter_1)
