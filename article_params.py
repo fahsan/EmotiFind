@@ -1,3 +1,5 @@
+#######################################################################################
+
 import nltk
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords, wordnet
@@ -119,7 +121,7 @@ def token_checker_3(token_frequency_present,token_frequency_absent_2,emotion_dic
                 break
                 #check if it is token_frequency_present, 
                 #if yes update the frequency and exit all the for loops except the first one
-            if word_s in token_frequency_present:
+            if word_s is token_frequency_present:
                 token_frequency_present[word_s] = token_frequency_present[word_s] + token_frequency_absent_2[word]
                 present = True
                 #print(present)
@@ -169,6 +171,3 @@ def token_checker(emotion_dict,token_frequency):
 def article_parameters(articleName):
     token_frequency = clean_article(articleName)
     return token_checker(emotion_dict,token_frequency)
-
-article_parameter_1 = article_parameters("steve_smith_article.txt")
-print(article_parameter_1)
