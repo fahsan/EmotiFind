@@ -6,7 +6,7 @@ import string
 
 # Remove named entities
 def ne_removal(text):
-    tokens = nltk.word_tokenize(text)
+    tokens = regexp_tokenize(text, "[\w']+")
     chunked = nltk.ne_chunk(nltk.pos_tag(tokens))
     tokens = [leaf[0] for leaf in chunked if type(leaf) != nltk.Tree]
     return tokens
